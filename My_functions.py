@@ -48,7 +48,7 @@ def load_DNS(days=31):
     # This function loads the DNS zip files from data_loc
     # It loads for x days in march 2015
     # The output is a list with swarmtoolkit.sw_io.Parameter
-    # !!!Note that the 5 march of sat='A' is not in the folder!!!
+   
     
     name = 'SW_OPER_DNSCWND_2__20150301T000000_20150301T235950_0101.ZIP'
     path = os.path.join(data_loc,name)
@@ -143,17 +143,29 @@ def orbit_nr(latitude):
             
 #%%         
 
-def orbit_means_fac(time,latitude,fac,mode='simple'):
+def orbit_means(time,latitude,data,mode='simple'):
     
     #Checks input
-    if time.name !='Timestamp' or fac.name!='FAC' or latitude.name !='Latitude':
-        print('Error in input')
+    if data.name =='FAC':
+        if time.name !='Timestamp' or latitude.name !='Latitude':
+            print('Error in input')
+            return 0
+    elif data.name =='density':
+        if time.name !='time' or latitude.name != 'latitude':
+            print('Error in input')
+            return 0
+    else:
+        print('Error in data type')
+        return 0
     
+    if mode == 'simple':
+        values = data.values
+        
     if mode == 'abs':
-        fac.values = abs(fac.values)
+        values = abs(data.values)
     
     if mode == 'power':
-        fac.values = np.power(fac.values , 2)
+        values = np.power(data.values , 2)
     
     #get orbit nr.
     orbits = orbit_nr(latitude)
@@ -206,9 +218,9 @@ def orbit_means_fac(time,latitude,fac,mode='simple'):
             
         
         # Check for nan values
-        if fac.values[i] == fac.values[i]:
+        if values[i] == values[i]:
             # Add each mesument to the corresponding orbit        
-            means[current_orbit] += fac.values[i]
+            means[current_orbit] += values[i]
             
             n += 1
        
