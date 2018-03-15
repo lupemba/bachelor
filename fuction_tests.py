@@ -13,7 +13,7 @@ from astropy.time import Time
 
 os.chdir('/home/simon/Desktop/Bachelor_project/code')
 
-import My_functions as my
+import My_functions_old as my
 days = 10
 
 #%% Load_ap
@@ -62,7 +62,7 @@ fig,ax1=st.plot(mean_test[0],mean_test[1],legends=[FAC_A[6].name+'_A power'])
 
 
 #%% Load_FAC_C
-FAC_C = my.load_FAC('C')
+FAC_C = my.load_FAC('C',days)
 
 fig,ax1=st.plot(FAC_C[0].values,abs(FAC_C[6].values),legends=[FAC_C[6].name+'_C'])
 

@@ -13,7 +13,7 @@ from astropy.time import Time
 
 os.chdir('/home/simon/Desktop/Bachelor_project/code')
 
-import My_functions as my
+import My_functions_old as my
 
 #%% load data and compute means
 

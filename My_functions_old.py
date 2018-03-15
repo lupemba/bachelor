@@ -11,7 +11,6 @@ import swarmtoolkit as st
 import numpy as np
 import os
 from astropy.time import Time
-import pandas as pd
 # path of data
 data_loc = "/home/simon/Desktop/Bachelor_project/data/"
 
@@ -39,15 +38,13 @@ def load_ap(days = 31):
         ap[1][i-start] = float(lines[i].strip().split()[1])
         ap[2][i-start] = float(lines[i].strip().split()[2])
     
-    # Convert to panda data format
-    dates = pd.to_datetime(ap[0])
-    ap = pd.DataFrame(np.transpose(ap[1:3]), index=dates, columns=['Kp','ap'])
+    ## ap[0]=time, ap[1]=Kp, ap[2]=ap
     return ap
 
 
 #%%
 
-def load_DNS(days=31,output_form='list'):
+def load_DNS(days=31):
     # This function loads the DNS zip files from data_loc
     # It loads for x days in march 2015
     # The output is a list with swarmtoolkit.sw_io.Parameter
@@ -77,14 +74,6 @@ def load_DNS(days=31,output_form='list'):
             print(name+' Was not found')
     ## Fix unrealistic values / errors in density
     DNS[5].values[DNS[5].values > 1e30] = float('nan')    
-    
-    # Convert to panda data format
-    dates=pd.to_datetime(DNS[0].values)
-    data = [DNS[1].values]
-    names = ['Altitude','Latitude','Longitude','Local_solar_time','Density']
-    for i in range(2,len(DNS)):
-        data.append(DNS[i].values)
-    DNS = pd.DataFrame(np.transpose(data), index=dates, columns=names)
     
     return DNS
 
@@ -121,21 +110,13 @@ def load_FAC(sat='A',days=31):
                 FAC[k].values= np.append(FAC[k].values,temp_FAC[k].values)
         except:
             print(name+' Was not found')
-    
-    # convert to pandas
-    dates=pd.to_datetime(FAC[0].values)
-    data = [FAC[1].values]
-    names = [FAC[1].name]
-    for i in range(2,len(FAC)):
-        data.append(FAC[i].values)
-        names.append(FAC[i].name)
-    FAC = pd.DataFrame(np.transpose(data), index=dates, columns=names)
+        
    
     return FAC
 
 #%%
     
-def add_orbit(dataframe):
+def orbit_nr(latitude):
     """
     Output an np.array with the orbit nr of corrospondig to the latitude.
     The firt mesument is denoted 0 the next 1 and so on.
@@ -144,84 +125,109 @@ def add_orbit(dataframe):
     align when there is holds!!!
     
     """
-    # initial orbits
-    latitude = dataframe['Latitude']
-    orbits = np.zeros(len(latitude))
-    hemisphere = np.ones(len(latitude))
+    # initial orbits 
+    orbits = np.zeros(len(latitude.values))
     current_orbit = 0
     
-    # Check if first mesument is on the southen hemisphere
-    if latitude[0]<0:
-        hemisphere[0]=-1
-        
     # go through all latitudes
-    for i in range(1,len(latitude)):
+    for i in range(1,len(latitude.values)):
         
-        if latitude[i]>0:
-            hemisphere[i]=1 # set to norhten hemiphere 
-            # If the Acending node is crossed. New orbit
-            if latitude[i-1]<0:
-                current_orbit += 1
-        else:
-            hemisphere[i]=-1 # set to southen hemiphere 
+        # If the Acending node is crossed. New orbit
+        if latitude.values[i-1]<0 and latitude.values[i]>0:
+            current_orbit += 1
+        
         # sets orbit
         orbits[i] = current_orbit
         
-    dataframe.loc[:,'Orbit_nr'] =  orbits
-    dataframe.loc[:,'Hemisphere'] = hemisphere
-    return None
+    return orbits
             
 #%%         
 
-def orbit_means(dataframe,mode='abs'):
+def orbit_means(time,latitude,data,mode='simple'):
     
-    if ('FAC' in dataframe.columns):
-        pos = 'FAC'
-    elif ('Density' in dataframe.columns):
-        pos = 'Density'
+    #Checks input
+    if data.name =='FAC':
+        if time.name !='Timestamp' or latitude.name !='Latitude':
+            print('Error in input')
+            return 0
+    elif data.name =='density':
+        if time.name !='time' or latitude.name != 'latitude':
+            print('Error in input')
+            return 0
     else:
         print('Error in data type')
         return 0
     
-    if not 'Orbit_nr' in dataframe.columns:
-        add_orbit(dataframe)
-
-
+    if mode == 'simple':
+        values = data.values
+        
+    if mode == 'abs':
+        values = abs(data.values)
+    
+    if mode == 'power':
+        values = np.power(data.values , 2)
+    
     #get orbit nr.
-    orbit_nr = np.repeat(np.array(range(int(dataframe.Orbit_nr[-1]+1))),2)
-    hemisphere = -1*np.ones(len(orbit_nr))
-    hemisphere[::2]=-hemisphere[::2]
+    orbits = orbit_nr(latitude)
+     
     #Intialize arrays for result
-    values = np.zeros(len(orbit_nr))
-    mesuments = np.zeros(len(orbit_nr))
-    delta_time = [0 for x in range(len(orbit_nr))]
-    dates = [0 for x in range(len(orbit_nr))]
+    means = np.zeros(int(orbits[-1]+1))
+    mesuments = np.zeros(int(orbits[-1]))
+    orbit_time = [0 for x in range(int(orbits[-1]))]
+    
     # sets first orbit
+    current_orbit = 0
+    start_time = time.values[0]
+    n = 0 
     
     # Go through data
-    for i in range(len(orbit_nr)):
-        # get the orbit
-        df = dataframe[dataframe.Orbit_nr == orbit_nr[i]]
-        # Get hemisphere
-        df = df[df.Hemisphere == hemisphere[i]]
-          
-        mesuments[i] = len(df.loc[:,pos])
-        if mesuments[i] == 0:
-            values[i] = float('nan')
-            delta_time[i] = 0
-            dates[i] = dataframe.index[0]
-        else:
-            delta_time[i] = (df.index[-1]-df.index[0]).total_seconds()
-            dates[i] = df.index[0] + (df.index[-1]-df.index[0])/2
-            if mode == 'simple':
-               values[i] = df.loc[:,pos].mean()
-            if mode == 'abs':
-                values[i] = df.loc[:,pos].apply(abs).mean()
-    
-            if mode == 'power':
-                values[i] = np.sqrt(df.loc[:,pos].apply(lambda x: x**2).mean())
-    data = [values,orbit_nr,hemisphere,mesuments,delta_time]
-    names = [pos,'Orbit_nr','Hemisphere','Count','Delta_time']
-    means = pd.DataFrame(np.transpose(data), index=dates, columns=names)
-    return means
+    for i in range(len(orbits)):
+        
+        ## If new orbit 
+        if current_orbit != orbits[i]:
+            
+            # Error code
+            #print('current_ orbit:%d  orbits[i]:%d    i:%d'
+            #          %(current_orbit,orbits[i],i))
+            
+            # Compute the mean of the old orbit
+            means[current_orbit] = means[current_orbit]/n
+            # record nr of mesuments
+            mesuments[current_orbit] = n
+            # compute the time difference
+            delta_time = start_time-time.values[i]
+            
+            #print('orbit nr %d has dt= %d'
+            #          %(current_orbit,delta_time.seconds))
+            # print warning for strange periods 
+            
+            # Print varning if time difference is strange
+            if abs(delta_time.seconds-80774) > 600 and current_orbit !=0:
+                print('Warning: orbit nr %d has dt= %d'
+                      %(current_orbit,delta_time.seconds))
+            
+            # set orbit  time in the midle
+            orbit_time[current_orbit] = start_time + delta_time/2
+            
+            # Set to new orbit
+            current_orbit += 1
+            
+            # re initialize
+            start_time = time.values[i]
+            n = 0
+            
+        
+        # Check for nan values
+        if values[i] == values[i]:
+            # Add each mesument to the corresponding orbit        
+            means[current_orbit] += values[i]
+            
+            n += 1
+       
+
+    if mode == 'power':
+        means = np.sqrt(means)
+        
+    #Return all but the last and first orbit
+    return orbit_time[1:], means[1:-1], mesuments[1:]
     
