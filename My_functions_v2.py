@@ -214,4 +214,34 @@ def orbit_means(dataframe,mode='abs'):
     names = [pos,'Orbit_nr','Hemisphere','Count','Delta_time']
     means = pd.DataFrame(np.transpose(data), index=dates, columns=names)
     return means
+
+#%%         
+
+def get_jets(FAC,window='120s'):
+    """
+    This Function takes FAC with orbit nr. and output the location of the 
+    electro-jets without local Solar time.
+    """
+    if ('FAC' not in FAC.columns):
+        print('Error in data type')
+        return 0
+   
+    # Smooth the data
+    smooth = FAC.loc[:,['FAC','Latitude','Longitude','Orbit_nr','Hemisphere']].copy()
+    smooth.FAC = smooth.FAC.abs()
+    smooth.FAC = smooth.FAC.rolling(window).mean()
     
+    # Crate an column to indicate if the sattelite is headed N or S
+    N_heading = smooth.Latitude.values.copy()
+    N_heading = np.diff(N_heading)
+    N_heading = np.append(N_heading, N_heading[-1]) # make sure dimensions fit
+    N_heading[N_heading>0] = 1  # If diff(lat)>0 the sat is noth_going
+    N_heading[N_heading<0] = -1 # If !(diff(lat)>0) the sat is going south
+    smooth.loc[:,'N_heading'] =  N_heading
+    
+    # Get index of max FAC for every quater orbit.
+    # quater orbit becuse the sattelite passes the jet on both side of
+    # the pole
+    idx= smooth.groupby(['Orbit_nr','Hemisphere','N_heading'])['FAC'].transform(max) == smooth['FAC']
+    
+    return smooth[idx]
