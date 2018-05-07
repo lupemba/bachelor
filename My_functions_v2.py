@@ -11,7 +11,7 @@ import swarmtoolkit as st
 import numpy as np
 import os
 import pandas as pd
-
+from apexpy import Apex
 
 #%%
 
@@ -127,13 +127,17 @@ def load_FAC(sat='dual'):
     
 def add_orbit(dataframe):
     """
-    Output an np.array with the orbit nr of corrospondig to the latitude.
+    add column to dataframe with the orbit nr of corrospondig to the latitude.
     The firt mesument is denoted 0 the next 1 and so on.
     Be aware that the latitude should be ordered in time. 
-    !!! Orbit nr is sensitive to holds in time series. Orbit nr does not 
-    align when there is holds!!!
+    !!! Orbit nr is sensitive to gaps in time series. Orbit nr does not 
+    align when there is gaps !!!
     
     """
+    if ('Orbit_nr' in dataframe.columns):
+        print('Orbit_nr is all ready in the dataframe')
+        return None
+    
     # initial orbits
     latitude = dataframe['Latitude']
     orbits = np.zeros(len(latitude))
@@ -216,7 +220,6 @@ def orbit_means(dataframe,mode='abs'):
     return means
 
 #%%         
-
 def get_jets(FAC,window='120s'):
     """
     This Function takes FAC with orbit nr. and output the location of the 
@@ -231,13 +234,9 @@ def get_jets(FAC,window='120s'):
     smooth.FAC = smooth.FAC.abs()
     smooth.FAC = smooth.FAC.rolling(window).mean()
     
-    # Crate an column to indicate if the sattelite is headed N or S
-    N_heading = smooth.Latitude.values.copy()
-    N_heading = np.diff(N_heading)
-    N_heading = np.append(N_heading, N_heading[-1]) # make sure dimensions fit
-    N_heading[N_heading>0] = 1  # If diff(lat)>0 the sat is noth_going
-    N_heading[N_heading<0] = -1 # If !(diff(lat)>0) the sat is going south
-    smooth.loc[:,'N_heading'] =  N_heading
+    add_apex_coords(smooth)
+    
+    add_heading(smooth,latitude = 'mLatitude')
     
     # Get index of max FAC for every quater orbit.
     # quater orbit becuse the sattelite passes the jet on both side of
@@ -245,3 +244,58 @@ def get_jets(FAC,window='120s'):
     idx= smooth.groupby(['Orbit_nr','Hemisphere','N_heading'])['FAC'].transform(max) == smooth['FAC']
     
     return smooth[idx]
+
+#%%
+    
+def add_heading(dataframe, latitude = 'Latitude' ):
+    """
+    
+    """
+    if ('N_heading' in dataframe.columns):
+        print('N_heading is all ready in the dataframe')
+        return None
+    
+    # Crate an column to indicate if the sattelite is headed N or S
+    N_heading = dataframe.loc[:,'Latitude'].values.copy()
+    N_heading = np.diff(N_heading)
+    N_heading = np.append(N_heading, N_heading[-1]) # make sure dimensions fit
+    N_heading[N_heading>0] = 1  # If diff(lat)>0 the sat is noth_going
+    N_heading[N_heading<0] = -1 # If !(diff(lat)>0) the sat is going south
+    dataframe.loc[:,'N_heading'] =  N_heading
+    
+    return None
+
+#%%
+    
+def add_apex_coords(dataframe,date = 'none', h = 450):
+    """
+    Add the geomagtic coordinates using apexPy 
+    """
+    if ('mLatitude' in dataframe.columns):
+        print('mLatitude is all ready in the dataframe')
+        return None    
+    
+    if date == 'none':
+        date=dataframe.index[0].date()
+    
+    model = Apex(date)
+    
+    ## Get the apex coordinates
+    mlat, mlon = model.geo2apex(dataframe.Latitude,dataframe.Longitude,h)
+    
+    # adds to the dataframe
+    dataframe.loc[:,'mLatitude'] =  mlat
+    dataframe.loc[:,'mLongitude'] =  mlon
+    
+    
+    return None         
+
+
+
+
+
+
+
+
+
+
