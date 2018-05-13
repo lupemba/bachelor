@@ -24,7 +24,7 @@ def load_DNS():
     data_loc = "/home/simon/Desktop/Bachelor_project/data/DNSCWND/"
     
     files=os.listdir(data_loc)
-    dates = np.array(range(1,31+1))
+    #dates = np.array(range(1,31+1))
     
     error_count = 0
     
@@ -40,16 +40,16 @@ def load_DNS():
                 ## Append data
                 for k in range(len(DNS)):
                     DNS[k].values= np.append(DNS[k].values,temp_DNS[k].values)
-            file_date = file_name[25:27]
-            dates[dates==int(file_date)] = 0
+            #file_date = file_name[25:27]
+            #dates[dates==int(file_date)] = 0
         except:
             print(file_name+': Could not be loaded')
             error_count += 1
     
-    fails = dates[dates != 0]
-    if len(fails) != 0:
-        print('Error loading files for these dates:')
-        print(fails)
+    #fails = dates[dates != 0]
+    #if len(fails) != 0:
+    #    print('Error loading files for these dates:')
+    #    print(fails)
     
     ## Fix unrealistic values / errors in density
     DNS[5].values[DNS[5].values > 1e30] = float('nan')    
@@ -86,7 +86,7 @@ def load_FAC(sat='dual'):
     error_count = 0
     
     files=os.listdir(data_loc)
-    dates = np.array(range(1,31+1))
+    #dates = np.array(range(1,31+1))
     
     
     for i in range(0,len(files)):
@@ -101,16 +101,16 @@ def load_FAC(sat='dual'):
                 ## Append data
                 for k in range(len(FAC)):
                     FAC[k].values= np.append(FAC[k].values,temp_FAC[k].values)
-            file_date = file_name[25:27]
-            dates[dates==int(file_date)] = 0
+     #       file_date = file_name[25:27]
+     #       dates[dates==int(file_date)] = 0
         except:
             print(file_name+': Could not be loaded')
             error_count += 1
     
-    fails = dates[dates != 0]
-    if len(fails) != 0:
-        print('Error loading files for these dates:')
-        print(fails)
+    #fails = dates[dates != 0]
+    #if len(fails) != 0:
+    #    print('Error loading files for these dates:')
+    #    print(fails)
     
     # convert to pandas
     dates=pd.to_datetime(FAC[0].values)
