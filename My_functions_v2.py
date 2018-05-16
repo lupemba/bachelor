@@ -276,7 +276,7 @@ def add_apex_coords(dataframe,date = 'none', h = 450):
         return None    
     
     if date == 'none':
-        date=dataframe.index[0].date()
+        date=dataframe.index[int(len(dataframe)/2)].date()
     
     model = Apex(date)
     
@@ -291,7 +291,50 @@ def add_apex_coords(dataframe,date = 'none', h = 450):
     return None         
 
 
+def filter_FAC(FAC, dt = '10',Flags= None, Flags_F=None, Flags_B=None,Flags_q=None):
+    """
+    Remove oberservations with flags above the enetered values 
+    and the obserevation with in +-dt seconds of the flaged observation.
+    If the value is None the flag is not considered
+    """
+    if ('FAC' not in FAC.columns):
+        print('Error in data type')
+        return 0
+    
+    # Set the accepted flag values to max if not specified
+    if Flags == None:
+        Flags = max(FAC.Flags)
+    
+    if Flags_F == None:
+        Flags_F = max(FAC.Flags_F)
+        
+    if Flags_B == None:
+        Flags_B = max(FAC.Flags_B)
+        
+    if Flags_q== None:
+        Flags_q = max(FAC.Flags_q)
+        
+    # Get the index of the flags    
+    Flag_idx= (FAC.Flags>Flags)|(FAC.Flags_F>Flags_F)|(FAC.Flags_B>Flags_B)|(FAC.Flags_q>Flags_q)
+    
+    # Initialize the FAC_filter with FAC values
+    FAC_filter = FAC.copy(deep=True)
+    
+    # Get the time intervals that should be removed
+    flagtime = FAC[Flag_idx].index.values
+    start_time= flagtime - np.timedelta64(dt, 's')
+    end_time = flagtime + np.timedelta64(dt, 's')
 
+    # Loop though the flags and remove set the corresponig interval to Nan
+    for i in range(0,len(flagtime)):
+        FAC_filter.FAC.loc[start_time[i]:end_time[i]] = float('Nan')
+        
+    # Drop the NaN values.
+    FAC_filter=FAC_filter.dropna(how='any')
+
+    print("%d observation out off %d are removed" % (len(FAC)-len(FAC_filter),len(FAC)))
+    
+    return FAC_filter
 
 
 
