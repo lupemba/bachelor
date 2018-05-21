@@ -256,7 +256,7 @@ def add_heading(dataframe, latitude = 'Latitude' ):
         return None
     
     # Crate an column to indicate if the sattelite is headed N or S
-    N_heading = dataframe.loc[:,'Latitude'].values.copy()
+    N_heading = dataframe.loc[:,latitude].values.copy()
     N_heading = np.diff(N_heading)
     N_heading = np.append(N_heading, N_heading[-1]) # make sure dimensions fit
     N_heading[N_heading>0] = 1  # If diff(lat)>0 the sat is noth_going
@@ -291,7 +291,7 @@ def add_apex_coords(dataframe,date = 'none', h = 450):
     return None         
 
 
-def filter_FAC(FAC, dt = '10',Flags= None, Flags_F=None, Flags_B=None,Flags_q=None):
+def filter_FAC(FAC, dt = 10,Flags= None, Flags_F=None, Flags_B=None,Flags_q=None):
     """
     Remove oberservations with flags above the enetered values 
     and the obserevation with in +-dt seconds of the flaged observation.
