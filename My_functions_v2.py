@@ -171,8 +171,10 @@ def orbit_means(dataframe,mode='abs'):
     
     if ('FAC' in dataframe.columns):
         pos = 'FAC'
+        alt = 'Radius'
     elif ('Density' in dataframe.columns):
         pos = 'Density'
+        alt = 'Altitude'
     else:
         print('Error in data type')
         return 0
@@ -190,6 +192,7 @@ def orbit_means(dataframe,mode='abs'):
     mesuments = np.zeros(len(orbit_nr))
     delta_time = [0 for x in range(len(orbit_nr))]
     dates = [0 for x in range(len(orbit_nr))]
+    altitudes = np.zeros(len(orbit_nr))
     # sets first orbit
     
     # Go through data
@@ -202,11 +205,13 @@ def orbit_means(dataframe,mode='abs'):
         mesuments[i] = len(df.loc[:,pos])
         if mesuments[i] == 0:
             values[i] = float('nan')
+            altitudes[i] = float('nan')
             delta_time[i] = 0
             dates[i] = dataframe.index[0]
         else:
             delta_time[i] = (df.index[-1]-df.index[0]).total_seconds()
             dates[i] = df.index[0] + (df.index[-1]-df.index[0])/2
+            altitudes[i] = df.loc[:,alt].mean()
             if mode == 'simple':
                values[i] = df.loc[:,pos].mean()
             if mode == 'abs':
@@ -214,8 +219,8 @@ def orbit_means(dataframe,mode='abs'):
     
             if mode == 'power':
                 values[i] = np.sqrt(df.loc[:,pos].apply(lambda x: x**2).mean())
-    data = [values,orbit_nr,hemisphere,mesuments,delta_time]
-    names = [pos,'Orbit_nr','Hemisphere','Count','Delta_time']
+    data = [values,altitudes,orbit_nr,hemisphere,mesuments,delta_time]
+    names = [pos,alt,'Orbit_nr','Hemisphere','Count','Delta_time']
     means = pd.DataFrame(np.transpose(data), index=dates, columns=names)
     return means
 
@@ -241,7 +246,7 @@ def get_jets(FAC,window='120s'):
     # Get index of max FAC for every quater orbit.
     # quater orbit becuse the sattelite passes the jet on both side of
     # the pole
-    idx= smooth.groupby(['Orbit_nr','Hemisphere','N_heading'])['FAC'].transform(max) == smooth['FAC']
+    idx= smooth.groupby(['Orbit_nr','Hemisphere','mN_heading'])['FAC'].transform(max) == smooth['FAC']
     
     return smooth[idx]
 
@@ -251,9 +256,8 @@ def add_heading(dataframe, latitude = 'Latitude' ):
     """
     
     """
-    if ('N_heading' in dataframe.columns):
-        print('N_heading is all ready in the dataframe')
-        return None
+    if (latitude == 'mLatitude') & (~('mLatitude' in dataframe.columns)):
+        add_apex_coords(dataframe)
     
     # Crate an column to indicate if the sattelite is headed N or S
     N_heading = dataframe.loc[:,latitude].values.copy()
@@ -261,13 +265,17 @@ def add_heading(dataframe, latitude = 'Latitude' ):
     N_heading = np.append(N_heading, N_heading[-1]) # make sure dimensions fit
     N_heading[N_heading>0] = 1  # If diff(lat)>0 the sat is noth_going
     N_heading[N_heading<0] = -1 # If !(diff(lat)>0) the sat is going south
-    dataframe.loc[:,'N_heading'] =  N_heading
+    
+    if latitude == 'mLatitude':
+        dataframe.loc[:,'mN_heading'] =  N_heading
+    else:    
+        dataframe.loc[:,'N_heading'] =  N_heading
     
     return None
 
 #%%
     
-def add_apex_coords(dataframe,date = 'none', h = 450):
+def add_apex_coords(dataframe,date = 'none', h = 470):
     """
     Add the geomagtic coordinates using apexPy 
     """
@@ -281,7 +289,7 @@ def add_apex_coords(dataframe,date = 'none', h = 450):
     model = Apex(date)
     
     ## Get the apex coordinates
-    mlat, mlon = model.geo2apex(dataframe.Latitude,dataframe.Longitude,h)
+    mlat, mlon = model.geo2qd(dataframe.Latitude,dataframe.Longitude,h)
     
     # adds to the dataframe
     dataframe.loc[:,'mLatitude'] =  mlat
@@ -290,6 +298,7 @@ def add_apex_coords(dataframe,date = 'none', h = 450):
     
     return None         
 
+#%%
 
 def filter_FAC(FAC, dt = 10,Flags= None, Flags_F=None, Flags_B=None,Flags_q=None):
     """
@@ -336,9 +345,96 @@ def filter_FAC(FAC, dt = 10,Flags= None, Flags_F=None, Flags_B=None,Flags_q=None
     
     return FAC_filter
 
+#%%
+    
+def Color_map(df, start_time, N, latitude = 'Latitude',min_lat = 0, roll = None):
+    """
+    Returns values to make a color map plot. Interpolates values to grid 
+    of latitudes for each orbit. Uses nearest value with a 
+    tolorance of max 1 degree
+    """
+    
+    # Check data_type    
+    if ('FAC' in df.columns):
+        pos = 'FAC'
+    elif ('Density' in df.columns):
+        pos = 'Density'
+    else:
+        print('Error in data type')
+        return 0
+    
+    # Do rolling mean if needed.
+    if roll != None:
+        df.loc[:,pos+'_roll']  = abs(df.loc[:,pos]).rolling(roll).mean().values
+        pos = pos+'_roll'
+    
+    ## Add the heading and orbit 
+    if latitude == 'Latitude':
+        heading = 'N_heading'
+        orbit = 'pOrbit_nr'
+        
+        if ~(heading in df.columns):
+            add_heading(df, latitude)
+        
+        if ~(orbit in df.columns):
+            # add pOrbit which is a orbit nr. that changes increment with 0.5 for each pole passages
+            df.loc[:,orbit] = np.cumsum(np.append(0, abs(np.diff(df.N_heading.values))))/4
+    
+    elif latitude == 'mLatitude':
+        heading = 'mN_heading'
+        orbit = 'mOrbit_nr'
+        
+        if ~(heading in df.columns):
+            add_heading(df, latitude)
+        
+        if ~(orbit in df.columns):
+            # add mOrbit which is a orbit nr. that changes increment with 0.5 for each mag-pole passages
+            df.loc[:,orbit] = np.cumsum(np.append(0, abs(np.diff(df.mN_heading.values))))/4      
+    else:
+        print('Error in input latitude, Try Latitude or mLatitude')
+        return 0
 
+    # get the start orbit
+    start_orbit = df[start_time].loc[:,orbit][0]
+    # Create the Y index'ex
+    if min_lat == 0:
+        fig_index1 = np.arange(-90,90,0.5)
+        fig_index2 = np.arange(90,-90.5,-0.5)
+        fig_index = np.hstack([fig_index1,fig_index2])
+    else:
+        fig_index1 = np.hstack([np.arange(-90,-min_lat,0.01),0, np.arange(min_lat,90,0.01)])
+        fig_index2 = np.hstack([np.arange(90,min_lat,-0.01),0, np.arange(-min_lat,-90,-0.01)])
+        fig_index = np.hstack([fig_index1,fig_index2])
 
+    # Initialize for x indexes
+    fig_dates = np.empty(N, dtype='datetime64[s]')
+    fig_orbit = np.zeros(N)
 
-
+    # Initilaize matrix for the densiteis
+    fig_values = np.zeros([len(fig_index),N])
+    
+    for i in range(N):
+    # Get the densiteis for (start_orbit+i) orbit and make sure that data_column1 is the N heading part
+    # and data_column2 is the south heading part.
+        data_column1= df[abs(df.loc[:,orbit].values-(start_orbit+i))<0.01]
+        if data_column1.loc[:,heading].mean() > 0:
+            data_column2 = df[abs(df.loc[:,orbit].values-(start_orbit+i+0.5))<0.01]
+        else:
+            data_column1= df[abs(df.loc[:,orbit].values-(start_orbit+i+0.5))<0.01]
+            data_column2 = df[abs(df.loc[:,orbit].values-(start_orbit+i+1))<0.01]
+        # Store the orbti nr. and the start time of the orbit to create x-axis later
+        fig_orbit[i] = data_column1.Orbit_nr[0]
+        fig_dates[i] = np.datetime64(data_column1.index[0])
+        # Set index to Latitude 
+        data_column1 = data_column1.set_index(latitude)
+        data_column2 = data_column2.set_index(latitude)
+        # interpolate the Densities to the Latitude given by fig_index
+        data_column1 = data_column1.reindex(labels=fig_index1, method='nearest', tolerance=1).loc[:,pos].values
+        data_column2 = data_column2.reindex(labels=fig_index2, method='nearest', tolerance=1).loc[:,pos].values
+        # store the values in matrix
+        fig_values[:,i] = np.hstack([data_column1,data_column2])
+    fig_dates = pd.to_datetime(fig_dates)
+    
+    return fig_values,fig_index,fig_dates,fig_orbit
 
 
