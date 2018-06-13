@@ -12,7 +12,9 @@ import numpy as np
 import os
 import pandas as pd
 from apexpy import Apex
-
+from pyamps import AMPS
+from scipy import signal
+from math import radians, degrees, sin, cos, asin
 #%%
 
 def load_DNS():
@@ -437,4 +439,72 @@ def Color_map(df, start_time, N, latitude = 'Latitude',min_lat = 0, roll = None)
     
     return fig_values,fig_index,fig_dates,fig_orbit
 
+#%%
+    
+def add_pyamps_currents(df, h = 470):
+    """
+    Add the geomagtic coordinates using apexPy 
+    """
+    
+    m = AMPS(df.Bulk_speed.values[0], # Solar wind velocity in km/s
+         df.BY_GSM.values[0], # IMF By (GSM) in nT
+         df.BZ_GSM.values[0], # IMF Bz (GSM) in nT,
+         dipole_tilt_angle(df.index[0])/np.pi*180, # dipole tilt angle in degrees
+         df.F10_INDEX.values[0], # F107_index
+         height = h )
+    
+    N=len(df)
+    Total_J = np.zeros(N)
+    
+    for i in range(N):
+        m.update_model(df.Bulk_speed.values[i], # Solar wind velocity in km/s
+             df.BY_GSM.values[i], # IMF By (GSM) in nT
+             df.BZ_GSM.values[i], # IMF Bz (GSM) in nT,
+             dipole_tilt_angle(df.index[i])/np.pi*180, # dipole tilt angle in degrees
+             df.F10_INDEX.values[i]) # F107_index
+        J_up_n, J_down_n, J_up_s, J_down_s = m.get_integrated_upward_current()
+        if df.Hemisphere.values[i]==1:
+            Total_J[i] = abs(J_up_n)+abs(J_down_n)
+        else:
+            Total_J[i] = abs(J_up_s)+abs(J_down_s)
+        
+        df.loc[:,'PyAmps']= Total_J
+    
+    return None   
 
+#%%
+
+def sun_unit_vector(t):
+    from apexpy.helpers import subsol
+    lat, lon = subsol(t)
+    colatrad = radians(90.0-lat)
+    lonrad   = radians(lon)
+    
+    return np.array([sin(colatrad)*cos(lonrad), sin(colatrad)*sin(lonrad), cos(colatrad)])
+
+def pole_unit_vector(t):
+    apexdate = t.year + t.dayofyear/365 # routine needs data as for example 2015.3
+    A = Apex(date=apexdate)
+    glat, glon = A.convert(90, 0, 'apex', 'geo', height=0)
+    colatrad = radians(90.0-glat)
+    lonrad = radians(glon)
+    
+    return np.array([sin(colatrad)*cos(lonrad), sin(colatrad)*sin(lonrad), cos(colatrad)])
+
+def dipole_tilt_angle(t):
+    return asin(np.dot(sun_unit_vector(t), pole_unit_vector(t)))
+#%%
+def correlation_norm(x1,x2):
+    """
+    Add the geomagtic coordinates using apexPy 
+    """
+    norm1 = np.ones(len(x1))
+    norm2 = np.ones(len(x2))
+    
+    norm = signal.correlate(norm1,norm2)
+    lag= np.array(range(len(norm)))
+    lag=lag-(len(lag)-1)/2
+    
+    corr=signal.correlate(x1,x2)
+    corr = corr/norm
+    return lag, corr   

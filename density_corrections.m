@@ -7,9 +7,9 @@ altitude = DNS(:,1);
 latitude = DNS(:,2);
 longitude = DNS(:,3);
 year = 2015;
-dayOfYear= DNS(:,14);
-UTseconds = DNS(:,15);
-f107Average = DNS(:,13);
+dayOfYear= DNS(:,12);
+UTseconds = DNS(:,13);
+f107Average = DNS(:,11);
 f107Daily = DNS(:,10);
 magneticIndex = 4;
 
