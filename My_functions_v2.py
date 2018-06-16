@@ -14,7 +14,7 @@ import pandas as pd
 from apexpy import Apex
 from pyamps import AMPS
 from scipy import signal
-from math import radians, degrees, sin, cos, asin
+from math import radians, sin, cos, asin
 #%%
 
 def load_DNS():
@@ -494,17 +494,69 @@ def pole_unit_vector(t):
 def dipole_tilt_angle(t):
     return asin(np.dot(sun_unit_vector(t), pole_unit_vector(t)))
 #%%
-def correlation_norm(x1,x2):
-    """
-    Add the geomagtic coordinates using apexPy 
-    """
-    norm1 = np.ones(len(x1))
-    norm2 = np.ones(len(x2))
+def correlation(df,var1,var2,minlag = -5,maxlag = 15):
+    lag_array = np.array(range(minlag,maxlag))
+    corr = np.zeros([len(var2),len(lag_array)])
+    N = np.zeros(len(lag_array))
+    dt_array = np.zeros(len(lag_array))
+    for i in range(len(lag_array)):
+        lag = lag_array[i]
+        
+        if lag < 0:
+            dt = df.index[-lag:]-df.index[:lag]
+            indx = abs(dt.values-np.median(dt.values))< -lag*np.timedelta64(5,'m')
+            data = np.hstack([df.loc[:,var1].values[:lag][:,np.newaxis], df.loc[:,var2].values[-lag:]])
+            df_lag = pd.DataFrame(data, index=df.index[-lag:], columns=[var1]+var2)
+            dt_mean = -np.mean(dt[indx]).astype('float')
+        if lag > 0:
+            dt = df.index[lag:]-df.index[:-lag]
+            indx = abs(dt.values-np.median(dt.values))< lag*np.timedelta64(5,'m')
+            data = np.hstack([df.loc[:,var1].values[lag:][:,np.newaxis], df.loc[:,var2].values[:-lag]])
+            df_lag = pd.DataFrame(data, index=df.index[lag:], columns=[var1]+var2)
+            dt_mean = np.mean(dt[indx]).astype('float')
+        if lag == 0:
+            indx = np.ones(len(df)).astype(bool)
+            data = np.hstack([df.loc[:,var1].values[:,np.newaxis], df.loc[:,var2].values])
+            df_lag = pd.DataFrame(data, index=df.index, columns=[var1]+var2)
+            dt_mean = 0
+         
+        corr[:,i] = df_lag[indx].corr().values[0,1:]
+        N[i] = len(df_lag[indx])
+        dt_array[i] = dt_mean/(10**9*60*60)
     
-    norm = signal.correlate(norm1,norm2)
-    lag= np.array(range(len(norm)))
-    lag=lag-(len(lag)-1)/2
+    return corr,N,lag_array,dt_array
+
+#%% 
+def shift_time(df,var1,var2,lag):
+    dt = df.index[lag:]-df.index[:-lag]
+    indx = abs(dt.values-np.median(dt.values))< lag*np.timedelta64(5,'m')
     
-    corr=signal.correlate(x1,x2)
-    corr = corr/norm
-    return lag, corr   
+    if type(var2) == list:
+        var = [var1]+var2
+        data = np.hstack([df.loc[:,var1].values[lag:][:,np.newaxis], df.loc[:,var2].values[:-lag]])
+    else:
+        var = [var1]+[var2]   
+        data = np.vstack([df.loc[:,var1].values[lag:], df.loc[:,var2].values[:-lag]])
+        data = np.transpose(data)
+        
+    Delayed_df = pd.DataFrame(data, index=df.index[lag:], columns=var)
+    Delayed_df = Delayed_df[indx]
+    dt_mean = np.mean(dt[indx])
+    
+    return Delayed_df,dt_mean
+
+#%%
+    
+def add_NaN_gap(df,dt=np.timedelta64(2,'h')):
+    gaps=(df.index.values[1:]-df.index.values[:-1])> dt
+    gaps = np.append(False,gaps)
+    t_NaN = df.index[gaps] - 0.9*dt
+    gaps = pd.DataFrame(np.ones([len(t_NaN),len(df.columns)])*float('NaN'), index=t_NaN,columns=df.columns)
+    df2 = df.append(gaps)  
+    df2 = df2.sort_index()
+    return df2
+
+
+
+
+

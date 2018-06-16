@@ -20,23 +20,23 @@ magneticIndex = 4;
 std_altitude = 470*10^3;
 [~,rho_std] = atmosnrlmsise00(std_altitude, latitude, longitude, year, dayOfYear, UTseconds, f107Average, f107Daily,4);
 
-cFactor_alt = rho_std(:,6)./rho_sat(:,6);
+nFactor_alt = rho_std(:,6)./rho_sat(:,6);
 
 %% F10.7
 std_f107 = 135;
 [~,rho_std] = atmosnrlmsise00(altitude, latitude, longitude, year, dayOfYear, UTseconds, std_f107, std_f107,4);
 
-cFactor_f10 = rho_std(:,6)./rho_sat(:,6);
+nFactor_f10 = rho_std(:,6)./rho_sat(:,6);
 
 %%
 figure(1)
-scatter(altitude(1:100:end),cFactor_alt(1:100:end))
-title('Correction Factor Altitude');
+scatter(altitude(1:100:end),nFactor_alt(1:100:end))
+title('Normalization Factor Altitude');
 
 figure(2)
-scatter((f107Average(1:100:end)+f107Daily(1:100:end))/2,cFactor_f10(1:100:end))
-title('Correction Factor F10');
+scatter((f107Average(1:100:end)+f107Daily(1:100:end))/2,nFactor_f10(1:100:end))
+title('Normalization Factor F10');
 
 %%
-Cfactors=[cFactor_alt,cFactor_f10];
-csvwrite('/home/simon/Desktop/Bachelor_project/data/Correction_factors.csv',Cfactors)
+nfactors=[nFactor_alt,nFactor_f10];
+csvwrite('/home/simon/Desktop/Bachelor_project/data/normalization_factors.csv',nfactors)
