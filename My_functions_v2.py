@@ -349,7 +349,7 @@ def filter_FAC(FAC, dt = 10,Flags= None, Flags_F=None, Flags_B=None,Flags_q=None
 
 #%%
     
-def Color_map(df, start_time, N, latitude = 'Latitude',min_lat = 0, roll = None):
+def Color_map(df, start_time, N, latitude = 'Latitude',min_lat = 0, roll = None,whitespace=10):
     """
     Returns values to make a color map plot. Interpolates values to grid 
     of latitudes for each orbit. Uses nearest value with a 
@@ -404,8 +404,8 @@ def Color_map(df, start_time, N, latitude = 'Latitude',min_lat = 0, roll = None)
         fig_index2 = np.arange(90,-90.5,-0.5)
         fig_index = np.hstack([fig_index1,fig_index2])
     else:
-        fig_index1 = np.hstack([np.arange(-90,-min_lat,0.01),0, np.arange(min_lat,90,0.01)])
-        fig_index2 = np.hstack([np.arange(90,min_lat,-0.01),0, np.arange(-min_lat,-90,-0.01)])
+        fig_index1 = np.hstack([np.arange(-90,-min_lat,0.01),np.linspace(-1,1,whitespace), np.arange(min_lat,90,0.01)])
+        fig_index2 = np.hstack([np.arange(90,min_lat,-0.01),np.linspace(1,-1,whitespace), np.arange(-min_lat,-90,-0.01)])
         fig_index = np.hstack([fig_index1,fig_index2])
 
     # Initialize for x indexes
