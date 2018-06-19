@@ -220,7 +220,7 @@ def orbit_means(dataframe,mode='abs'):
                 values[i] = df.loc[:,pos].apply(abs).mean()
     
             if mode == 'power':
-                values[i] = np.sqrt(df.loc[:,pos].apply(lambda x: x**2).mean())
+                values[i] = df.loc[:,pos].apply(lambda x: x**2).mean()
     data = [values,altitudes,orbit_nr,hemisphere,mesuments,delta_time]
     names = [pos,alt,'Orbit_nr','Hemisphere','Count','Delta_time']
     means = pd.DataFrame(np.transpose(data), index=dates, columns=names)
@@ -349,7 +349,8 @@ def filter_FAC(FAC, dt = 10,Flags= None, Flags_F=None, Flags_B=None,Flags_q=None
 
 #%%
     
-def Color_map(df, start_time, N, latitude = 'Latitude',min_lat = 0, roll = None,whitespace=10):
+def Color_map(df, start_time, N, latitude = 'Latitude',min_lat = 0,
+              roll = None,whitespace=10,lat_tolerance=1):
     """
     Returns values to make a color map plot. Interpolates values to grid 
     of latitudes for each orbit. Uses nearest value with a 
@@ -431,8 +432,8 @@ def Color_map(df, start_time, N, latitude = 'Latitude',min_lat = 0, roll = None,
         data_column1 = data_column1.set_index(latitude)
         data_column2 = data_column2.set_index(latitude)
         # interpolate the Densities to the Latitude given by fig_index
-        data_column1 = data_column1.reindex(labels=fig_index1, method='nearest', tolerance=1).loc[:,pos].values
-        data_column2 = data_column2.reindex(labels=fig_index2, method='nearest', tolerance=1).loc[:,pos].values
+        data_column1 = data_column1.reindex(labels=fig_index1, method='nearest', tolerance=lat_tolerance).loc[:,pos].values
+        data_column2 = data_column2.reindex(labels=fig_index2, method='nearest', tolerance=lat_tolerance).loc[:,pos].values
         # store the values in matrix
         fig_values[:,i] = np.hstack([data_column1,data_column2])
     fig_dates = pd.to_datetime(fig_dates)
