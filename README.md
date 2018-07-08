@@ -1,8 +1,7 @@
 # Bachelor thesis code
 
 Title:Exploring the Relation Between Thermospheric
-Density and Field Aligned Currents (FAC) Based
-on Swarm Satellite Observations
+Density and Field Aligned Currents (FAC) Based on Swarm Satellite Observations
 Author: Simon Kok Lupemba
 Contact: simon.kok@live.dk
 
