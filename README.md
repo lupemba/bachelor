@@ -2,7 +2,9 @@
 
 Title:Exploring the Relation Between Thermospheric
 Density and Field Aligned Currents (FAC) Based on Swarm Satellite Observations
+
 Author: Simon Kok Lupemba
+
 Contact: simon.kok@live.dk
 
 This folder contain the code used for processing Swarm data and plotting of the
